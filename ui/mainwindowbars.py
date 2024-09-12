@@ -154,6 +154,9 @@ class LeftBar(Widget):
         actionExportTranslationMD = QAction(self.tr("Export translation as markdown"), self)
         self.export_trans_md = actionExportTranslationMD.triggered
 
+        actionExportCBZ = QAction(self.tr("Export images as cbz"),self)
+        self.export_cbz = actionExportCBZ.triggered
+
         self.recentMenu = QMenu(self.tr("Open Recent"), self)
         
         openMenu = QMenu(self)
@@ -168,6 +171,7 @@ class LeftBar(Widget):
             actionExportTranslationTxt,
             actionExportSrcMD,
             actionExportTranslationMD,
+            actionExportCBZ,
         ])
         self.openBtn = OpenBtn()
         self.openBtn.setFixedSize(LEFTBTN_WIDTH, LEFTBTN_WIDTH)

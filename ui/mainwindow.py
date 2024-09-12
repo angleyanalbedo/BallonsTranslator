@@ -8,6 +8,7 @@ from functools import partial
 from qtpy.QtWidgets import QAction, QFileDialog, QMenu, QHBoxLayout, QVBoxLayout, QApplication, QStackedWidget, QSplitter, QListWidget, QShortcut, QListWidgetItem, QMessageBox, QTextEdit, QPlainTextEdit
 from qtpy.QtCore import Qt, QPoint, QSize, QEvent, Signal
 from qtpy.QtGui import QContextMenuEvent, QTextCursor, QGuiApplication, QIcon, QCloseEvent, QKeySequence, QKeyEvent, QPainter, QClipboard
+from utils.createcbz import CbzWorker
 
 from utils.logger import logger as LOGGER
 from utils.text_processing import is_cjk, full_len, half_len
@@ -71,6 +72,7 @@ class MainWindow(mainwindow_cls):
     def __init__(self, app: QApplication, config: ProgramConfig, open_dir='', **exec_args) -> None:
         super().__init__()
 
+        self.worker = None
         shared.create_errdialog_in_mainthread = self.create_errdialog.emit
         self.create_errdialog.connect(self.on_create_errdialog)
         shared.create_infodialog_in_mainthread = self.create_infodialog.emit
@@ -138,6 +140,7 @@ class MainWindow(mainwindow_cls):
         self.leftBar.export_trans_txt.connect(lambda : self.on_export_txt(dump_target='translation'))
         self.leftBar.export_src_md.connect(lambda : self.on_export_txt(dump_target='source', suffix='.md'))
         self.leftBar.export_trans_md.connect(lambda : self.on_export_txt(dump_target='translation', suffix='.md'))
+        self.leftBar.export_cbz.connect(self.export_cbz)
 
         self.pageList = PageListView()
         self.pageList.reveal_file.connect(self.on_reveal_file)
@@ -420,6 +423,22 @@ class MainWindow(mainwindow_cls):
             self.leftStackWidget.setCurrentWidget(self.pageList)
         else:
             self.leftStackWidget.hide()
+
+    def export_cbz(self):
+        d = None
+        dialog = QFileDialog()
+        output_path = str(dialog.getExistingDirectory(self, self.tr("Select Directory"), d))
+        if osp.exists(output_path):
+            cbz_name = os.path.basename(self.imgtrans_proj.directory)
+            folder_path = Path(self.imgtrans_proj.directory)/'result'
+            self.worker = CbzWorker(folder_path, cbz_name, output_path)
+            self.worker.finished.connect(self.on_worker_finished)
+            self.worker.start()
+    def on_worker_finished(self):
+        self.worker = None
+        LOGGER.info("cbz finished")
+
+
 
     def closeEvent(self, event: QCloseEvent) -> None:
         self.st_manager.hovering_transwidget = None
