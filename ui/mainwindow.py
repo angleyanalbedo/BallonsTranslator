@@ -4,6 +4,7 @@ from typing import List, Union
 from pathlib import Path
 import subprocess
 from functools import partial
+import time
 
 from qtpy.QtWidgets import QAction, QFileDialog, QMenu, QHBoxLayout, QVBoxLayout, QApplication, QStackedWidget, \
     QSplitter, QListWidget, QShortcut, QListWidgetItem, QMessageBox, QTextEdit, QPlainTextEdit
@@ -1043,9 +1044,12 @@ class MainWindow(mainwindow_cls):
 
                     blk.line_spacing = gf.line_spacing
                     blk.letter_spacing = gf.letter_spacing
+                    blk.italic = gf.italic
+                    blk.bold = gf.bold
+                    blk.underline = gf.underline
                     sw = blk.stroke_width
                     if sw > 0 and pcfg.module.enable_ocr and pcfg.module.enable_detect and not override_fnt_size:
-                        blk.font_size = int(blk.font_size / (1 + sw))
+                        blk.font_size = blk.font_size / (1 + sw)
 
             self.st_manager.auto_textlayout_flag = pcfg.let_autolayout_flag and \
                                                    (pcfg.module.enable_detect or pcfg.module.enable_translate)
@@ -1344,6 +1348,8 @@ class MainWindow(mainwindow_cls):
 
     def run_next_dir(self):
         if len(self.exec_dirs) == 0:
+            while self.imsave_thread.isRunning():
+                time.sleep(0.1)
             LOGGER.info(f'finished translating all dirs, quit app...')
             self.app.quit()
             return
