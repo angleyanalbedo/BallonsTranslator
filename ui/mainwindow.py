@@ -5,10 +5,12 @@ from pathlib import Path
 import subprocess
 from functools import partial
 
-from qtpy.QtWidgets import QAction, QFileDialog, QMenu, QHBoxLayout, QVBoxLayout, QApplication, QStackedWidget, QSplitter, QListWidget, QShortcut, QListWidgetItem, QMessageBox, QTextEdit, QPlainTextEdit
+from qtpy.QtWidgets import QAction, QFileDialog, QMenu, QHBoxLayout, QVBoxLayout, QApplication, QStackedWidget, \
+    QSplitter, QListWidget, QShortcut, QListWidgetItem, QMessageBox, QTextEdit, QPlainTextEdit
 from qtpy.QtCore import Qt, QPoint, QSize, QEvent, Signal
-from qtpy.QtGui import QContextMenuEvent, QTextCursor, QGuiApplication, QIcon, QCloseEvent, QKeySequence, QKeyEvent, QPainter, QClipboard
-from utils.createcbz import CbzWorker
+from qtpy.QtGui import QContextMenuEvent, QTextCursor, QGuiApplication, QIcon, QCloseEvent, QKeySequence, QKeyEvent, \
+    QPainter, QClipboard
+from utils.createcbz import CbzWorker, Unpacker
 
 from utils.logger import logger as LOGGER
 from utils.text_processing import is_cjk, full_len, half_len
@@ -17,7 +19,8 @@ from utils import shared
 from utils import create_error_dialog
 from modules.translators.trans_chatgpt import GPTTranslator
 from .misc import parse_stylesheet, set_html_family, QKEY
-from utils.config import ProgramConfig, pcfg, save_config, text_styles, save_text_styles, load_textstyle_from, FontFormat
+from utils.config import ProgramConfig, pcfg, save_config, text_styles, save_text_styles, load_textstyle_from, \
+    FontFormat
 from .config_proj import ProjImgTrans
 from .canvas import Canvas
 from .configpanel import ConfigPanel
@@ -36,8 +39,8 @@ from .keywordsubwidget import KeywordSubWidget
 from . import shared_widget as SW
 from .custom_widget import MessageBox, FrameLessMessageBox, ImgtransProgressMessageBox
 
-class PageListView(QListWidget):
 
+class PageListView(QListWidget):
     reveal_file = Signal()
 
     def __init__(self, *args, **kwargs) -> None:
@@ -54,9 +57,11 @@ class PageListView(QListWidget):
 
         return super().contextMenuEvent(e)
 
-mainwindow_cls = Widget if shared.HEADLESS else FramelessWindow
-class MainWindow(mainwindow_cls):
 
+mainwindow_cls = Widget if shared.HEADLESS else FramelessWindow
+
+
+class MainWindow(mainwindow_cls):
     imgtrans_proj: ProjImgTrans = ProjImgTrans()
     save_on_page_changed = True
     opening_dir = False
@@ -68,7 +73,7 @@ class MainWindow(mainwindow_cls):
     restart_signal = Signal()
     create_errdialog = Signal(str, str, str)
     create_infodialog = Signal(dict)
-    
+
     def __init__(self, app: QApplication, config: ProgramConfig, open_dir='', **exec_args) -> None:
         super().__init__()
 
@@ -136,11 +141,12 @@ class MainWindow(mainwindow_cls):
         self.leftBar.save_proj.connect(self.save_proj)
         self.leftBar.export_doc.connect(self.on_export_doc)
         self.leftBar.import_doc.connect(self.on_import_doc)
-        self.leftBar.export_src_txt.connect(lambda : self.on_export_txt(dump_target='source'))
-        self.leftBar.export_trans_txt.connect(lambda : self.on_export_txt(dump_target='translation'))
-        self.leftBar.export_src_md.connect(lambda : self.on_export_txt(dump_target='source', suffix='.md'))
-        self.leftBar.export_trans_md.connect(lambda : self.on_export_txt(dump_target='translation', suffix='.md'))
+        self.leftBar.export_src_txt.connect(lambda: self.on_export_txt(dump_target='source'))
+        self.leftBar.export_trans_txt.connect(lambda: self.on_export_txt(dump_target='translation'))
+        self.leftBar.export_src_md.connect(lambda: self.on_export_txt(dump_target='source', suffix='.md'))
+        self.leftBar.export_trans_md.connect(lambda: self.on_export_txt(dump_target='translation', suffix='.md'))
         self.leftBar.export_cbz.connect(self.export_cbz)
+        self.leftBar.open_cbz.connect(self.open_cbz)
 
         self.pageList = PageListView()
         self.pageList.reveal_file.connect(self.on_reveal_file)
@@ -156,9 +162,9 @@ class MainWindow(mainwindow_cls):
         self.imsave_thread.img_writed.connect(self.global_search_widget.on_img_writed)
         self.global_search_widget.search_tree.result_item_clicked.connect(self.on_search_result_item_clicked)
         self.leftStackWidget.addWidget(self.global_search_widget)
-        
+
         self.centralStackWidget = QStackedWidget(self)
-        
+
         self.titleBar = TitleBar(self)
         self.titleBar.closebtn_clicked.connect(self.on_closebtn_clicked)
         self.titleBar.display_lang_changed.connect(self.on_display_lang_changed)
@@ -188,7 +194,7 @@ class MainWindow(mainwindow_cls):
 
         self.bottomBar.originalSlider.valueChanged.connect(self.canvas.setOriginalTransparencyBySlider)
         self.bottomBar.textlayerSlider.valueChanged.connect(self.canvas.setTextLayerTransparencyBySlider)
-        
+
         self.drawingPanel = DrawingPanel(self.canvas, self.configPanel.inpaint_config_panel)
         self.textPanel = TextPanel(self.app)
         self.textPanel.formatpanel.effect_panel.setParent(self)
@@ -258,7 +264,7 @@ class MainWindow(mainwindow_cls):
         self.leftBar.imgTransChecker.setChecked(True)
         self.st_manager.formatpanel.global_format = pcfg.global_fontformat
         self.st_manager.formatpanel.set_active_format(pcfg.global_fontformat)
-        
+
         self.rightComicTransStackPanel.setHidden(True)
         self.st_manager.setTextEditMode(False)
         self.st_manager.formatpanel.foldTextBtn.setChecked(pcfg.fold_textarea)
@@ -274,7 +280,8 @@ class MainWindow(mainwindow_cls):
         module_manager.finish_translate_page.connect(self.finishTranslatePage)
         module_manager.imgtrans_pipeline_finished.connect(self.on_imgtrans_pipeline_finished)
         module_manager.page_trans_finished.connect(self.on_pagtrans_finished)
-        module_manager.setupThread(self.configPanel, self.imgtrans_progress_msgbox, self.ocr_postprocess, self.translate_postprocess)
+        module_manager.setupThread(self.configPanel, self.imgtrans_progress_msgbox, self.ocr_postprocess,
+                                   self.translate_postprocess)
         module_manager.progress_msgbox.showed.connect(self.on_imgtrans_progressbox_showed)
         module_manager.imgtrans_thread.mask_postprocess = self.drawingPanel.rectPanel.post_process_mask
         module_manager.blktrans_pipeline_finished.connect(self.on_blktrans_finished)
@@ -352,7 +359,7 @@ class MainWindow(mainwindow_cls):
             self.openDir(proj_path)
         else:
             self.openJsonProj(proj_path)
-        
+
         if pcfg.let_textstyle_indep_flag and not shared.HEADLESS:
             self.load_textstyle_from_proj_dir(from_proj=True)
 
@@ -380,7 +387,7 @@ class MainWindow(mainwindow_cls):
             self.opening_dir = False
             create_error_dialog(e, self.tr('Failed to load project ') + directory)
             return
-        
+
     def dropOpenDir(self, directory: str):
         if isinstance(directory, str) and osp.exists(directory):
             self.leftBar.updateRecentProjList(directory)
@@ -398,17 +405,17 @@ class MainWindow(mainwindow_cls):
         except Exception as e:
             self.opening_dir = False
             create_error_dialog(e, self.tr('Failed to load project from') + json_path)
-        
+
     def updatePageList(self):
         if self.pageList.count() != 0:
             self.pageList.clear()
         if len(self.imgtrans_proj.pages) >= shared.PAGELIST_THUMBNAIL_MAXNUM:
             item_func = lambda imgname: QListWidgetItem(imgname)
         else:
-            item_func = lambda imgname:\
+            item_func = lambda imgname: \
                 QListWidgetItem(QIcon(osp.join(self.imgtrans_proj.directory, imgname)), imgname)
         for imgname in self.imgtrans_proj.pages:
-            lstitem =  item_func(imgname)
+            lstitem = item_func(imgname)
             self.pageList.addItem(lstitem)
             if imgname == self.imgtrans_proj.current_img:
                 self.pageList.setCurrentItem(lstitem)
@@ -430,14 +437,32 @@ class MainWindow(mainwindow_cls):
         output_path = str(dialog.getExistingDirectory(self, self.tr("Select Directory"), d))
         if osp.exists(output_path):
             cbz_name = os.path.basename(self.imgtrans_proj.directory)
-            folder_path = Path(self.imgtrans_proj.directory)/'result'
+            folder_path = Path(self.imgtrans_proj.directory) / 'result'
             self.worker = CbzWorker(folder_path, cbz_name, output_path)
-            self.worker.finished.connect(self.on_worker_finished)
+            self.worker.finished.connect(self.on_cbzworker_finished)
             self.worker.start()
-    def on_worker_finished(self):
+
+    def on_cbzworker_finished(self):
         self.worker = None
         LOGGER.info("cbz finished")
 
+    def open_cbz(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_name, _ = QFileDialog.getOpenFileName(self, self.tr("Select CBZ File"), "",
+                                                   "CBZ Files (*.cbz);;All Files (*)", options=options)
+
+        if file_name:
+            basename = os.path.basename(file_name)
+            output_dir = Path(os.getcwd()) / 'workarea' / os.path.splitext(basename)[0]
+            self.worker = Unpacker(file_name, output_dir)
+            self.worker.done.connect(self.on_unpacker_finished)
+            self.worker.start()
+    def on_unpacker_finished(self,output):
+        self.worker = None
+        LOGGER.info("cbz has unpack")
+        self.openDir(output)
+        self.leftBar.updateRecentProjList(output)
 
 
     def closeEvent(self, event: QCloseEvent) -> None:
@@ -458,7 +483,7 @@ class MainWindow(mainwindow_cls):
             self.canvas.on_activation_changed()
 
         super().changeEvent(event)
-    
+
     def retranslateUI(self):
         # according to https://stackoverflow.com/questions/27635068/how-to-retranslate-dynamically-created-widgets
         # we got to do it manually ... I'd rather restart the program
@@ -482,7 +507,7 @@ class MainWindow(mainwindow_cls):
             save_rst_only = not self.canvas.draw_change_unsaved()
             if not save_rst_only:
                 save_proj = True
-            
+
             self.saveCurrentPage(update_scene_text, save_proj, restore_interface=True, save_rst_only=save_rst_only)
 
     def pageListCurrentItemChanged(self):
@@ -499,11 +524,11 @@ class MainWindow(mainwindow_cls):
             self.titleBar.setTitleContent(page_name=self.imgtrans_proj.current_img)
             self.module_manager.handle_page_changed()
             self.drawingPanel.handle_page_changed()
-            
+
         self.page_changing = False
 
     def setupShortcuts(self):
-        self.titleBar.nextpage_trigger.connect(self.shortcutNext) 
+        self.titleBar.nextpage_trigger.connect(self.shortcutNext)
         self.titleBar.prevpage_trigger.connect(self.shortcutBefore)
         self.titleBar.textedit_trigger.connect(self.shortcutTextedit)
         self.titleBar.drawboard_trigger.connect(self.shortcutDrawboard)
@@ -699,12 +724,11 @@ class MainWindow(mainwindow_cls):
                 cursor = se.textCursor()
                 cursor.select(QTextCursor.SelectionType.Document)
                 se.setTextCursor(cursor)
-                
+
                 self.global_search_widget.commit_search()
 
     def show_MT_keyword_window(self):
         self.mtSubWidget.show()
-
 
     def show_OCR_keyword_window(self):
         self.ocrSubWidget.show()
@@ -720,7 +744,7 @@ class MainWindow(mainwindow_cls):
         if current_img == page_name and not force_save:
             return
         if current_img not in self.global_search_widget.page_set:
-            if self.canvas.projstate_unsaved: 
+            if self.canvas.projstate_unsaved:
                 self.saveCurrentPage()
         else:
             self.saveCurrentPage(save_rst_only=True)
@@ -780,15 +804,15 @@ class MainWindow(mainwindow_cls):
         self.st_manager.showTextblkItemRect(mode)
 
     def save_proj(self):
-        if self.leftBar.imgTransChecker.isChecked()\
-            and self.imgtrans_proj.directory is not None:
+        if self.leftBar.imgTransChecker.isChecked() \
+                and self.imgtrans_proj.directory is not None:
             self.conditional_manual_save()
 
     def saveCurrentPage(self, update_scene_text=True, save_proj=True, restore_interface=False, save_rst_only=False):
-        
+
         if not self.imgtrans_proj.img_valid:
             return
-        
+
         if restore_interface:
             set_canvas_focus = self.canvas.hasFocus()
             sel_textitem = self.canvas.selected_text_items()
@@ -796,10 +820,10 @@ class MainWindow(mainwindow_cls):
             editing_textitem = None
             if n_sel_textitems == 1 and sel_textitem[0].isEditing():
                 editing_textitem = sel_textitem[0]
-        
+
         if update_scene_text:
             self.st_manager.updateTextBlkList()
-        
+
         if self.rightComicTransStackPanel.isHidden():
             self.bottomBar.texteditChecker.click()
 
@@ -834,8 +858,9 @@ class MainWindow(mainwindow_cls):
 
         img = self.canvas.render_result_img()
         imsave_path = self.imgtrans_proj.get_result_path(self.imgtrans_proj.current_img)
-        self.imsave_thread.saveImg(imsave_path, img, self.imgtrans_proj.current_img, save_params={'ext': pcfg.imgsave_ext, 'quality': pcfg.imgsave_quality})
-            
+        self.imsave_thread.saveImg(imsave_path, img, self.imgtrans_proj.current_img,
+                                   save_params={'ext': pcfg.imgsave_ext, 'quality': pcfg.imgsave_quality})
+
         self.canvas.setProjSaveState(False)
         self.canvas.update_saved_undostep()
 
@@ -854,7 +879,7 @@ class MainWindow(mainwindow_cls):
                 self.canvas.block_selection_signal = False
             if editing_textitem is not None:
                 editing_textitem.startEdit()
-        
+
     def translatorStatusBtnPressed(self):
         self.leftBar.configChecker.setChecked(True)
         self.configPanel.focusOnTranslator()
@@ -882,7 +907,7 @@ class MainWindow(mainwindow_cls):
             return
         # if run_target and self.canvas.text_change_unsaved():
         #     self.st_manager.updateTextBlkList()
-        
+
         # self.module_manager.translatePage(run_target, page_key)
 
         blkitem_list = self.st_manager.textblk_item_list
@@ -891,9 +916,8 @@ class MainWindow(mainwindow_cls):
             if self.bottomBar.transTranspageBtn.running:
                 self.bottomBar.transTranspageBtn.setRunText()
             return
-        
-        self.translateBlkitemList(blkitem_list, -1)
 
+        self.translateBlkitemList(blkitem_list, -1)
 
     def translateBlkitemList(self, blkitem_list: List, mode: int) -> bool:
 
@@ -901,12 +925,12 @@ class MainWindow(mainwindow_cls):
         if tgt_img is None:
             return False
         tgt_mask = self.imgtrans_proj.mask_array
-        
+
         if len(blkitem_list) < 1:
             return False
-        
+
         self.global_search_widget.set_document_edited()
-        
+
         im_h, im_w = tgt_img.shape[:2]
 
         blk_list, blk_ids = [], []
@@ -915,12 +939,12 @@ class MainWindow(mainwindow_cls):
             blk._bounding_rect = blkitem.absBoundingRect()
             blk.text = self.st_manager.pairwidget_list[blkitem.idx].e_source.toPlainText()
             blk_ids.append(blkitem.idx)
-            blk.set_lines_by_xywh(blk._bounding_rect, angle=-blk.angle, x_range=[0, im_w-1], y_range=[0, im_h-1], adjust_bbox=True)
+            blk.set_lines_by_xywh(blk._bounding_rect, angle=-blk.angle, x_range=[0, im_w - 1], y_range=[0, im_h - 1],
+                                  adjust_bbox=True)
             blk_list.append(blk)
 
-        self.module_manager.runBlktransPipeline(blk_list, tgt_img, mode, blk_ids, tgt_mask = tgt_mask)
+        self.module_manager.runBlktransPipeline(blk_list, tgt_img, mode, blk_ids, tgt_mask=tgt_mask)
         return True
-
 
     def finishTranslatePage(self, page_key):
         self.bottomBar.transTranspageBtn.setRunText()
@@ -945,7 +969,8 @@ class MainWindow(mainwindow_cls):
                     blk.translation = full_len(blk.translation)
                 else:
                     blk.translation = half_len(blk.translation)
-                    blk.translation = re.sub(r'([?.!"])\s+', r'\1', blk.translation)    # remove spaces following punctuations
+                    blk.translation = re.sub(r'([?.!"])\s+', r'\1',
+                                             blk.translation)  # remove spaces following punctuations
         else:
             for blk in blk_list:
                 if blk.vertical:
@@ -961,11 +986,12 @@ class MainWindow(mainwindow_cls):
     def on_pagtrans_finished(self, page_index: int):
         blk_list = self.imgtrans_proj.get_blklist_byidx(page_index)
         ffmt_list = None
-        if len(self.backup_blkstyles) == self.imgtrans_proj.num_pages and len(self.backup_blkstyles[page_index]) == len(blk_list):
+        if len(self.backup_blkstyles) == self.imgtrans_proj.num_pages and len(self.backup_blkstyles[page_index]) == len(
+                blk_list):
             ffmt_list: List[FontFormat] = self.backup_blkstyles[page_index]
 
         self.postprocess_translations(blk_list)
-                
+
         # override font format if necessary
         override_fnt_size = pcfg.let_fntsize_flag == 1
         override_fnt_stroke = pcfg.let_fntstroke_flag == 1
@@ -978,8 +1004,9 @@ class MainWindow(mainwindow_cls):
         gf = self.textPanel.formatpanel.global_format
 
         inpaint_only = pcfg.module.enable_inpaint
-        inpaint_only = inpaint_only and not (pcfg.module.enable_detect or pcfg.module.enable_ocr or pcfg.module.enable_translate)
-        
+        inpaint_only = inpaint_only and not (
+                pcfg.module.enable_detect or pcfg.module.enable_ocr or pcfg.module.enable_translate)
+
         if not inpaint_only:
             for ii, blk in enumerate(blk_list):
                 if self._run_imgtrans_wo_textstyle_update and ffmt_list is not None:
@@ -1013,7 +1040,7 @@ class MainWindow(mainwindow_cls):
                         blk.font_family = gf.font_family
                         if blk.rich_text:
                             blk.rich_text = set_html_family(blk.rich_text, gf.font_family)
-                    
+
                     blk.line_spacing = gf.line_spacing
                     blk.letter_spacing = gf.letter_spacing
                     sw = blk.stroke_width
@@ -1021,8 +1048,8 @@ class MainWindow(mainwindow_cls):
                         blk.font_size = int(blk.font_size / (1 + sw))
 
             self.st_manager.auto_textlayout_flag = pcfg.let_autolayout_flag and \
-                (pcfg.module.enable_detect or pcfg.module.enable_translate)
-        
+                                                   (pcfg.module.enable_detect or pcfg.module.enable_translate)
+
         if page_index != self.pageList.currentIndex().row():
             self.pageList.setCurrentRow(page_index)
         else:
@@ -1061,7 +1088,7 @@ class MainWindow(mainwindow_cls):
 
         if len(blk_ids) < 1:
             return
-        
+
         blkitem_list = [self.st_manager.textblk_item_list[idx] for idx in blk_ids]
 
         pairw_list = []
@@ -1121,7 +1148,8 @@ class MainWindow(mainwindow_cls):
                     if pcfg.module.enable_ocr:
                         textblk.text = []
                         textblk.set_font_colors((0, 0, 0), (0, 0, 0))
-                    if pcfg.module.enable_translate or (all_disabled and not self._run_imgtrans_wo_textstyle_update) or pcfg.module.enable_ocr:
+                    if pcfg.module.enable_translate or (
+                            all_disabled and not self._run_imgtrans_wo_textstyle_update) or pcfg.module.enable_ocr:
                         textblk.rich_text = ''
                     textblk.vertical = textblk.src_is_vertical
         self.module_manager.runImgtransPipeline()
@@ -1201,11 +1229,11 @@ class MainWindow(mainwindow_cls):
         current_img_path = self.imgtrans_proj.current_img_path()
         if sys.platform == 'win32':
             # qprocess seems to fuck up with "\""
-            p = "\""+str(Path(current_img_path))+"\""
-            subprocess.Popen("explorer.exe /select,"+p, shell=True)
+            p = "\"" + str(Path(current_img_path)) + "\""
+            subprocess.Popen("explorer.exe /select," + p, shell=True)
         elif sys.platform == 'darwin':
-            p = "\""+current_img_path+"\""
-            subprocess.Popen("open -R "+p, shell=True)
+            p = "\"" + current_img_path + "\""
+            subprocess.Popen("open -R " + p, shell=True)
 
     def on_set_gsearch_widget(self):
         setup = self.leftBar.globalSearchChecker.isChecked()
@@ -1243,10 +1271,11 @@ class MainWindow(mainwindow_cls):
             text = blk.get_text()
             blk.text = self.ocrSubWidget.sub_text(text)
 
-    def translate_postprocess(self, translations: List[str] = None, textblocks: List[TextBlock] = None, translator = None):
+    def translate_postprocess(self, translations: List[str] = None, textblocks: List[TextBlock] = None,
+                              translator=None):
         if not self.postprocess_mt_toggle:
             return
-        
+
         for ii, tr in enumerate(translations):
             translations[ii] = self.mtSubWidget.sub_text(tr)
 
@@ -1254,7 +1283,7 @@ class MainWindow(mainwindow_cls):
         blks = self.canvas.selected_text_items()
         if len(blks) == 0:
             return
-        
+
         if isinstance(self.module_manager.translator, GPTTranslator):
             src_list = [self.st_manager.pairwidget_list[blk.idx].e_source.toPlainText() for blk in blks]
             src_txt = ''
@@ -1262,7 +1291,8 @@ class MainWindow(mainwindow_cls):
                 src_txt += prompt
             src_txt = src_txt.strip()
         else:
-            src_list = [self.st_manager.pairwidget_list[blk.idx].e_source.toPlainText().strip().replace('\n', ' ') for blk in blks]
+            src_list = [self.st_manager.pairwidget_list[blk.idx].e_source.toPlainText().strip().replace('\n', ' ') for
+                        blk in blks]
             src_txt = '\n'.join(src_list)
 
         self.st_manager.app_clipborad.setText(src_txt, QClipboard.Mode.Clipboard)
@@ -1274,16 +1304,15 @@ class MainWindow(mainwindow_cls):
 
         src_widget_list = [self.st_manager.pairwidget_list[blk.idx].e_source for blk in blks]
         text_list = self.st_manager.app_clipborad.text().split('\n')
-        
+
         n_paragraph = min(len(src_widget_list), len(text_list))
         if n_paragraph < 1:
             return
-        
+
         src_widget_list = src_widget_list[:n_paragraph]
         text_list = text_list[:n_paragraph]
 
         self.canvas.push_undo_command(PasteSrcItemsCommand(src_widget_list, text_list))
-
 
     def keyPressEvent(self, event: QKeyEvent) -> None:
         key = event.key()
@@ -1291,7 +1320,7 @@ class MainWindow(mainwindow_cls):
             if key == Qt.Key.Key_Alt:
                 self.canvas.alt_pressed = True
         return super().keyPressEvent(event)
-    
+
     def keyReleaseEvent(self, event: QKeyEvent) -> None:
         if hasattr(self, 'canvas'):
             if event.key() == Qt.Key.Key_Alt:
@@ -1300,7 +1329,7 @@ class MainWindow(mainwindow_cls):
                     self.canvas.scale_tool_mode = False
                     self.canvas.end_scale_tool.emit()
         return super().keyReleaseEvent(event)
-    
+
     def run_batch(self, exec_dirs: Union[List, str], **kwargs):
         if not isinstance(exec_dirs, List):
             exec_dirs = exec_dirs.split(',')
@@ -1320,7 +1349,7 @@ class MainWindow(mainwindow_cls):
             return
         d = self.exec_dirs.pop(0)
         from tqdm import tqdm
-        
+
         LOGGER.info(f'translating {d} ...')
         self.openDir(d)
         shared.pbar = {}
@@ -1355,7 +1384,7 @@ class MainWindow(mainwindow_cls):
     def on_create_infodialog(self, info_dict: dict):
         QMessageBox.StandardButton.NoButton
         dialog = MessageBox(**info_dict)
-        dialog.show()   # exec_ will block main thread
+        dialog.show()  # exec_ will block main thread
 
     def setupRegisterWidget(self):
         self.titleBar.viewMenu.addSeparator()

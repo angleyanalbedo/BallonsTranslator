@@ -132,6 +132,9 @@ class LeftBar(Widget):
         actionOpenFolder.triggered.connect(self.onOpenFolder)
         actionOpenFolder.setShortcut(QKeySequence.Open)
 
+        actionOpenCBZ = QAction(self.tr("Open CBZ ..."), self)
+        self.open_cbz = actionOpenCBZ.triggered
+
         actionOpenProj = QAction(self.tr("Open Project ... *.json"), self)
         actionOpenProj.triggered.connect(self.onOpenProj)
 
@@ -160,7 +163,7 @@ class LeftBar(Widget):
         self.recentMenu = QMenu(self.tr("Open Recent"), self)
         
         openMenu = QMenu(self)
-        openMenu.addActions([actionOpenFolder, actionOpenProj])
+        openMenu.addActions([actionOpenFolder, actionOpenCBZ, actionOpenProj])
         openMenu.addMenu(self.recentMenu)
         openMenu.addSeparator()
         openMenu.addActions([
