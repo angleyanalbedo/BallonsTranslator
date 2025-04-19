@@ -3,8 +3,8 @@ from typing import List, Callable
 from modules import GET_VALID_INPAINTERS, GET_VALID_TEXTDETECTORS, GET_VALID_TRANSLATORS, GET_VALID_OCR, \
     BaseTranslator, DEFAULT_DEVICE, GPUINTENSIVE_SET
 from utils.logger import logger as LOGGER
-from .custom_widget import ConfigComboBox, ParamComboBox, NoBorderPushBtn
-from utils.shared import CONFIG_FONTSIZE_CONTENT, CONFIG_COMBOBOX_MIDEAN, CONFIG_COMBOBOX_LONG, CONFIG_COMBOBOX_SHORT, CONFIG_COMBOBOX_HEIGHT
+from .custom_widget import ConfigComboBox, ParamComboBox, NoBorderPushBtn, ParamNameLabel
+from utils.shared import CONFIG_COMBOBOX_LONG, size2width, CONFIG_COMBOBOX_SHORT, CONFIG_COMBOBOX_HEIGHT
 from utils.config import pcfg
 
 from qtpy.QtWidgets import QPlainTextEdit, QHBoxLayout, QVBoxLayout, QWidget, QLabel, QCheckBox, QLineEdit, QGridLayout, QPushButton
@@ -12,28 +12,37 @@ from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QDoubleValidator
 
 
-class ParamNameLabel(QLabel):
-    def __init__(self, param_name: str, alignment = None, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+class ParamCheckGroup(QWidget):
 
-        if alignment is None:
-            self.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        else:
-            self.setAlignment(alignment)
+    paramwidget_edited = Signal(str, dict)
 
-        font = self.font()
-        font.setPointSizeF(CONFIG_FONTSIZE_CONTENT-2)
-        self.setFont(font)
-        self.setText(param_name)
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+    def __init__(self, param_key, check_group: dict, parent=None) -> None:
+        super().__init__(parent=parent)
+        self.param_key = param_key
+        layout = QHBoxLayout(self)
+        self.label2widget = {}
+        for k, v in check_group.items():
+            checker = QCheckBox(text=k, parent=self)
+            checker.setChecked(v)
+            layout.addWidget(checker)
+            self.label2widget[k] = checker
+            checker.clicked.connect(self.on_checker_clicked)
+
+    def on_checker_clicked(self):
+        new_state_dict = {}
+        w = QCheckBox()
+        for k, w in self.label2widget.items():
+            new_state_dict[k] = w.isChecked()
+        self.paramwidget_edited.emit(self.param_key, new_state_dict)
+
 
 class ParamLineEditor(QLineEdit):
     
     paramwidget_edited = Signal(str, str)
-    def __init__(self, param_key: str, force_digital, *args, **kwargs) -> None:
+    def __init__(self, param_key: str, force_digital, size='short', *args, **kwargs) -> None:
         super().__init__( *args, **kwargs)
         self.param_key = param_key
-        self.setFixedWidth(CONFIG_COMBOBOX_MIDEAN)
+        self.setFixedWidth(size2width(size))
         self.setFixedHeight(CONFIG_COMBOBOX_HEIGHT)
         self.textChanged.connect(self.on_text_changed)
 
@@ -145,7 +154,7 @@ class ParamWidget(QWidget):
             require_label = True
             is_str = isinstance(params[param_key], str)
             is_digital = isinstance(params[param_key], float) or isinstance(params[param_key], int)
-            param_widget = None  # Инициализация переменной
+            param_widget = None
 
             if isinstance(params[param_key], bool):
                 param_widget = ParamCheckBox(param_key)
@@ -167,14 +176,17 @@ class ParamWidget(QWidget):
                 value = params[param_key]['value']
                 param_widget = None  # Ensure initialization
                 param_type = param_dict['type'] if 'type' in param_dict else 'line_editor'
-
+                flush_btn = param_dict.get('flush_btn', False)
+                path_selector = param_dict.get('path_selector', False)
+                param_size = param_dict.get('size', 'short')
                 if param_type == 'selector':
                     if 'url' in param_key:
-                        size = CONFIG_COMBOBOX_MIDEAN
+                        size = size2width('median')
                     else:
-                        size = CONFIG_COMBOBOX_SHORT
+                        size = size2width(param_size)
 
-                    param_widget = ParamComboBox(param_key, param_dict['options'], size=size, scrollWidget=scrollWidget)
+                    param_widget = ParamComboBox(
+                        param_key, param_dict['options'], size=size, scrollWidget=scrollWidget, flush_btn=flush_btn, path_selector=path_selector)
 
                     if param_key == 'device' and DEFAULT_DEVICE == 'cpu':
                         param_dict['value'] = 'cpu'
@@ -184,6 +196,7 @@ class ParamWidget(QWidget):
                                 item = model.item(ii, 0)
                                 item.setEnabled(False)
                     param_widget.setCurrentText(str(value))
+                    param_widget.setEditable(param_dict.get('editable', False))
 
                 elif param_type == 'editor':
                     param_widget = ParamEditor(param_key)
@@ -204,6 +217,9 @@ class ParamWidget(QWidget):
                     param_widget = ParamLineEditor(param_key, force_digital=is_digital)
                     param_widget.setText(str(value))
 
+                elif param_type == 'check_group':
+                    param_widget = ParamCheckGroup(param_key, check_group=value)
+
                 if param_widget is not None:
                     param_widget.paramwidget_edited.connect(self.on_paramwidget_edited)
                     if 'description' in param_dict:
@@ -215,9 +231,32 @@ class ParamWidget(QWidget):
                 param_layout.addWidget(param_label, ii, 0)
                 widget_idx = 1
             if param_widget:
-                param_layout.addWidget(param_widget, ii, widget_idx)
+                pw_lo = None
+                if hasattr(param_widget, 'flush_btn') or hasattr(param_widget, 'path_select_btn'):
+                    pw_lo = QHBoxLayout()
+                    pw_lo.addWidget(param_widget)
+                if hasattr(param_widget, 'flush_btn'):
+                    pw_lo.addWidget(param_widget.flush_btn)
+                    param_widget.flushbtn_clicked.connect(self.on_flushbtn_clicked)
+                if hasattr(param_widget, 'path_select_btn'):
+                    pw_lo.addWidget(param_widget.path_select_btn)
+                    param_widget.pathbtn_clicked.connect(self.on_pathbtn_clicked)
+                if pw_lo is None:
+                    param_layout.addWidget(param_widget, ii, widget_idx)
+                else:
+                    param_layout.addLayout(pw_lo, ii, widget_idx)
             else:
                 raise ValueError(f"Failed to initialize widget for key: {param_key}")
+            
+    def on_flushbtn_clicked(self):
+        paramw: ParamComboBox = self.sender()
+        content_dict = {'content': '', 'widget': paramw, 'flush': True}
+        self.paramwidget_edited.emit(paramw.param_key, content_dict)
+
+    def on_pathbtn_clicked(self):
+        paramw: ParamComboBox = self.sender()
+        content_dict = {'content': '', 'widget': paramw, 'select_path': True}
+        self.paramwidget_edited.emit(paramw.param_key, content_dict)
 
     def on_paramwidget_edited(self, param_key, param_content):
         content_dict = {'content': param_content}
@@ -327,7 +366,9 @@ class ModuleConfigParseWidget(QWidget):
 
 class TranslatorConfigPanel(ModuleConfigParseWidget):
 
+    show_pre_MT_keyword_window = Signal()
     show_MT_keyword_window = Signal()
+    show_OCR_keyword_window = Signal()
 
     def __init__(self, module_name, scrollWidget: QWidget = None, *args, **kwargs) -> None:
         super().__init__(module_name, GET_VALID_TRANSLATORS, scrollWidget=scrollWidget, *args, **kwargs)
@@ -335,9 +376,15 @@ class TranslatorConfigPanel(ModuleConfigParseWidget):
     
         self.source_combobox = ConfigComboBox(scrollWidget=scrollWidget)
         self.target_combobox = ConfigComboBox(scrollWidget=scrollWidget)
+        self.replacePreMTkeywordBtn = NoBorderPushBtn(self.tr("Keyword substitution for machine translation source text"), self)
+        self.replacePreMTkeywordBtn.clicked.connect(self.show_pre_MT_keyword_window)
+        self.replacePreMTkeywordBtn.setFixedWidth(500)
         self.replaceMTkeywordBtn = NoBorderPushBtn(self.tr("Keyword substitution for machine translation"), self)
         self.replaceMTkeywordBtn.clicked.connect(self.show_MT_keyword_window)
         self.replaceMTkeywordBtn.setFixedWidth(500)
+        self.replaceOCRkeywordBtn = NoBorderPushBtn(self.tr("Keyword substitution for source text"), self)
+        self.replaceOCRkeywordBtn.clicked.connect(self.show_OCR_keyword_window)
+        self.replaceOCRkeywordBtn.setFixedWidth(500)
 
         st_layout = QHBoxLayout()
         st_layout.setSpacing(15)
@@ -348,6 +395,8 @@ class TranslatorConfigPanel(ModuleConfigParseWidget):
         st_layout.addWidget(self.target_combobox)
         
         self.vlayout.insertLayout(1, st_layout) 
+        self.vlayout.addWidget(self.replaceOCRkeywordBtn)
+        self.vlayout.addWidget(self.replacePreMTkeywordBtn)
         self.vlayout.addWidget(self.replaceMTkeywordBtn)
 
     def finishSetTranslator(self, translator: BaseTranslator):
@@ -390,25 +439,17 @@ class TextDetectConfigPanel(ModuleConfigParseWidget):
         super().__init__(module_name, GET_VALID_TEXTDETECTORS, scrollWidget = scrollWidget, *args, **kwargs)
         self.detector_changed = self.module_changed
         self.setDetector = self.setModule
-
+        self.keep_existing_checker = QCheckBox(text=self.tr('Keep Existing Lines'))
+        self.p_layout.insertWidget(2, self.keep_existing_checker)
+        
 
 class OCRConfigPanel(ModuleConfigParseWidget):
-    
-    show_OCR_keyword_window = Signal()
-
     def __init__(self, module_name: str, scrollWidget: QWidget = None, *args, **kwargs) -> None:
         super().__init__(module_name, GET_VALID_OCR, scrollWidget = scrollWidget, *args, **kwargs)
         self.ocr_changed = self.module_changed
         self.setOCR = self.setModule
-
-        self.replaceOCRkeywordBtn = NoBorderPushBtn(self.tr("Keyword substitution for OCR results"), self)
-        self.replaceOCRkeywordBtn.clicked.connect(self.show_OCR_keyword_window)
-        self.replaceOCRkeywordBtn.setFixedWidth(500)
-
         self.restoreEmptyOCRChecker = QCheckBox(self.tr("Delete and restore region where OCR return empty string."), self)
         self.restoreEmptyOCRChecker.clicked.connect(self.on_restore_empty_ocr)
-
-        self.vlayout.addWidget(self.replaceOCRkeywordBtn)
         self.vlayout.addWidget(self.restoreEmptyOCRChecker)
 
     def on_restore_empty_ocr(self):

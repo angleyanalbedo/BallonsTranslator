@@ -5,12 +5,15 @@ import time
 from typing import List, Dict, Union
 import yaml
 import traceback
+import inspect
 
 import openai
 
 from .base import BaseTranslator, register_translator
 
+
 OPENAPI_V1_API = int(openai.__version__.split('.')[0]) >= 1
+
 
 class InvalidNumTranslations(Exception):
     pass
@@ -66,7 +69,7 @@ class GPTTranslator(BaseTranslator):
         'delay': 0.3,
         'max tokens': 4096,
         'temperature': 0.5,
-        'top p': 1,
+        'top p': 1.,
         # 'return prompt': False,
         'retry attempts': 5,
         'retry timeout': 15,
@@ -121,7 +124,7 @@ class GPTTranslator(BaseTranslator):
         return self.params['max tokens']
     
     @property
-    def top_p(self) -> int:
+    def top_p(self) -> float:
         return self.params['top p']
     
     @property
@@ -164,7 +167,7 @@ class GPTTranslator(BaseTranslator):
         else:
             return None
 
-    def _assemble_prompts(self, queries: List[str], from_lang: str = None, to_lang: str = None, max_tokens = None) -> List[str]:
+    def _assemble_prompts(self, queries: List[str], from_lang: str = None, to_lang: str = None, max_tokens = None):
         if from_lang is None:
             from_lang = self.lang_map[self.lang_source]
         if to_lang is None:
@@ -292,8 +295,9 @@ class GPTTranslator(BaseTranslator):
         )
 
         if OPENAPI_V1_API:
-            self.token_count += response.usage.total_tokens
-            self.token_count_last = response.usage.total_tokens
+            if response.usage is not None:
+                self.token_count += response.usage.total_tokens
+                self.token_count_last = response.usage.total_tokens
         else:
             self.token_count += response.usage['total_tokens']
             self.token_count_last = response.usage['total_tokens']
@@ -309,21 +313,33 @@ class GPTTranslator(BaseTranslator):
             messages.insert(1, {'role': 'user', 'content': chat_sample[0]})
             messages.insert(2, {'role': 'assistant', 'content': chat_sample[1]})
 
+        func_args = {
+            'model': model,
+            'messages': messages,
+            'temperature': self.temperature,
+            'top_p': self.top_p,
+        }
+        max_tokens = self.max_tokens // 2 # Assuming that half of the tokens are used for the query
+        func_parameters = inspect.signature(openai.chat.completions.create).parameters
+        if 'max_completion_tokens' in func_parameters:
+            func_args['max_completion_tokens'] = max_tokens
+        else:
+            func_args['max_tokens'] = max_tokens
+        if 'presence_penalty' in func_parameters:
+            func_args['presence_penalty'] = self.params['presence penalty']
+            func_args['frequency_penalty'] = self.params['frequency penalty']
+
         if OPENAPI_V1_API:
             openai_chatcompletions_create = openai.chat.completions.create
         else:
             openai_chatcompletions_create = openai.ChatCompletion.create
-        response = openai_chatcompletions_create(
-            model=model,
-            messages=messages,
-            max_tokens=self.max_tokens // 2,
-            temperature=self.temperature,
-            top_p=self.top_p,
-        )
+
+        response = openai_chatcompletions_create(**func_args)
 
         if OPENAPI_V1_API:
-            self.token_count += response.usage.total_tokens
-            self.token_count_last = response.usage.total_tokens
+            if response.usage is not None:
+                self.token_count += response.usage.total_tokens
+                self.token_count_last = response.usage.total_tokens
         else:
             self.token_count += response.usage['total_tokens']
             self.token_count_last = response.usage['total_tokens']
@@ -343,10 +359,10 @@ class GPTTranslator(BaseTranslator):
         if not url:
             return None
         
-        # 移除末尾的斜杠
+        # 对于小于v1.0.0版本的openai包，末尾的斜杠会导致请求失败，因此弹出警告
         if url.endswith('v1/'):
-            url = url[:-1]
-            self.logger.debug(f"Removed trailing slash after 'v1': {url}")
+            if not OPENAPI_V1_API:
+                self.logger.warning(f"The OpenAI package version you are using is outdated. Please remove the trailing slash after 'v1' in the URL: {url}")
 
         # 检查是否包含"/v1"
         if '/v1' not in url:

@@ -12,7 +12,6 @@ except:
     from qtpy.QtGui import QUndoStack, QUndoCommand
 
 from .misc import ndarray2pixmap, QKEY, QNUMERIC_KEYS, ARROWKEY2DIRECTION
-from .config_proj import ProjImgTrans
 from .textitem import TextBlkItem, TextBlock
 from .texteditshapecontrol import TextBlkShapeControl
 from .custom_widget import ScrollBar, FadeLabel
@@ -20,6 +19,7 @@ from .image_edit import ImageEditMode, DrawingLayer, StrokeImgItem
 from .page_search_widget import PageSearchWidget
 from utils import shared as C
 from utils.config import pcfg
+from utils.proj_imgtrans import ProjImgTrans
 
 CANVAS_SCALE_MAX = 10.0
 CANVAS_SCALE_MIN = 0.01
@@ -77,8 +77,6 @@ class CustomGV(QGraphicsView):
 
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
-        # self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        # self.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
 
     def wheelEvent(self, event : QWheelEvent) -> None:
         # qgraphicsview always scroll content according to wheelevent
@@ -159,7 +157,7 @@ class Canvas(QGraphicsScene):
     finish_painting = Signal(StrokeImgItem)
     finish_erasing = Signal(StrokeImgItem)
     delete_textblks = Signal(int)
-    copy_textblks = Signal(QPointF)
+    copy_textblks = Signal()
     paste_textblks = Signal(QPointF)
     copy_src_signal = Signal()
     paste_src_signal = Signal()
@@ -362,8 +360,11 @@ class Canvas(QGraphicsScene):
 
         self.clearSelection()
         if self.textEditMode() and self.txtblkShapeControl.blk_item is not None:
-            if self.txtblkShapeControl.blk_item.is_editting():
-                self.txtblkShapeControl.blk_item.endEdit()
+            blk_item = self.txtblkShapeControl.blk_item
+            if blk_item.is_editting():
+                blk_item.endEdit(keep_focus=False)
+            if blk_item.isSelected():
+                blk_item.setSelected(False)
 
         result = ndarray2pixmap(self.imgtrans_proj.inpainted_array, return_qimg=True)
         canvas_sz = self.img_window_size()
@@ -550,11 +551,16 @@ class Canvas(QGraphicsScene):
         self.creating_textblock = False
         self.gv.setCursor(Qt.CursorShape.ArrowCursor)
         self.txtblkShapeControl.hide()
+        textblk_created = False
+        rect = self.txtblkShapeControl.rect()
         if self.creating_normal_rect:
-            self.end_create_rect.emit(self.txtblkShapeControl.rect(), btn)
+            self.end_create_rect.emit(rect, btn)
             self.txtblkShapeControl.showControls()
         else:
-            self.end_create_textblock.emit(self.txtblkShapeControl.rect())
+            if rect.width() > 1 and rect.height() > 1:
+                self.end_create_textblock.emit(rect)
+                textblk_created = True
+        return textblk_created
 
     def mouseMoveEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         if self.mid_btn_pressed:
@@ -670,15 +676,16 @@ class Canvas(QGraphicsScene):
         Qt.MouseButton.LeftButton
         if btn == Qt.MouseButton.MiddleButton:
             self.mid_btn_pressed = False
+        textblk_created = False
         if self.creating_textblock:
             tgt = 0 if btn == Qt.MouseButton.LeftButton else 1
-            self.endCreateTextblock(btn=tgt)
+            textblk_created = self.endCreateTextblock(btn=tgt)
         if btn == Qt.MouseButton.RightButton:
             if self.stroke_img_item is not None:
                 self.finish_erasing.emit(self.stroke_img_item)
-            if self.textEditMode():
+            if self.textEditMode() and not textblk_created:
                 self.context_menu_requested.emit(event.screenPos(), False)
-        elif btn == Qt.MouseButton.LeftButton:
+        if btn == Qt.MouseButton.LeftButton:
             if self.stroke_img_item is not None:
                 self.finish_painting.emit(self.stroke_img_item)
             elif self.scale_tool_mode:
@@ -788,9 +795,9 @@ class Canvas(QGraphicsScene):
             elif rst == delete_recover_act:
                 self.delete_textblks.emit(1)
             elif rst == copy_act:
-                self.on_copy(pos.toPointF())
+                self.on_copy()
             elif rst == paste_act:
-                self.on_paste(pos.toPointF())
+                self.on_paste()
             elif rst == copy_src_act:
                 self.copy_src_signal.emit()
             elif rst == paste_src_act:
@@ -827,12 +834,10 @@ class Canvas(QGraphicsScene):
             else:
                 self.paste_textblks.emit(p)
 
-    def on_copy(self, p: QPointF = None):
+    def on_copy(self):
         if self.textEditMode():
             if self.have_selected_blkitem:
-                if p is None:
-                    p = self.scene_cursor_pos()
-                self.copy_textblks.emit(p)
+                self.copy_textblks.emit()
 
     def hide_rubber_band(self):
         if self.rubber_band.isVisible():
@@ -921,7 +926,8 @@ class Canvas(QGraphicsScene):
         self.text_undo_stack.redo()
 
     def undo_textedit(self):
-        self.num_pushed_textstep -= 1
+        if self.num_pushed_textstep > 0:
+            self.num_pushed_textstep -= 1
         self.text_undo_stack.undo()
 
     def redo(self):
@@ -943,11 +949,13 @@ class Canvas(QGraphicsScene):
     def undo(self):
         if self.textEditMode():
             undo_stack = self.text_undo_stack
-            self.num_pushed_textstep -= 1
+            if self.num_pushed_textstep > 0:
+                self.num_pushed_textstep -= 1
             self.on_textstack_changed()
         elif self.drawMode():
             undo_stack = self.draw_undo_stack
-            self.num_pushed_drawstep -= 1
+            if self.num_pushed_drawstep > 0:
+                self.num_pushed_drawstep -= 1
             self.on_drawstack_changed()
         else:
             return

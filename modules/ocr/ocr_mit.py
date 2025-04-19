@@ -11,7 +11,7 @@ mit_params = {
         'options': [8, 16, 24, 32],
         'value': 16
     },
-    'device': DEVICE_SELECTOR(),
+    'device': DEVICE_SELECTOR(not_supported=['privateuseone']),
     'description': 'OCRMIT32px'
 }
 
@@ -19,6 +19,10 @@ class MITModels(OCRBase):
 
     _line_only = True
     _load_model_keys = {'model'}
+
+    def __init__(self, **params) -> None:
+        super().__init__(**params)
+        self.model = None
 
     @property
     def chunk_size(self) -> int:
@@ -33,7 +37,7 @@ class MITModels(OCRBase):
         return self.model(blk_list, regions, textblk_lst_indices, chunk_size=self.chunk_size)
 
     def updateParam(self, param_key: str, param_content):
-        if param_key == 'device' and self.device != param_content:
+        if param_key == 'device' and self.device != param_content and self.model is not None:
             self.model.to(param_content)
         super().updateParam(param_key, param_content)
 

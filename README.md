@@ -2,7 +2,7 @@
 > **如打算公开分享本工具的机翻结果，且没有有经验的译者进行过完整的翻译或校对，请在显眼位置注明机翻。**
 
 # BallonTranslator
-简体中文 | [English](/README_EN.md) | [pt-BR](doc/README_PT-BR.md) | [Русский](doc/README_RU.md) | [日本語](doc/README_JA.md) | [Indonesia](doc/README_ID.md) | [Tiếng Việt](doc/README_VI.md)
+简体中文 | [English](/README_EN.md) | [pt-BR](doc/README_PT-BR.md) | [Русский](doc/README_RU.md) | [日本語](doc/README_JA.md) | [Indonesia](doc/README_ID.md) | [Tiếng Việt](doc/README_VI.md) | [한국어](doc/README_KO.md) | [Español](doc/README_ES.md)
 
 深度学习辅助漫画翻译工具，支持一键机翻和简单的图像/文本编辑  
 
@@ -24,7 +24,7 @@
   
 * 文本编辑  
   - 支持所见即所得地富文本编辑和一些基础排版格式调整、[字体样式预设](https://github.com/dmMaze/BallonsTranslator/pull/311)
-  - 支持全文/源文/译文查找替换
+  - 支持全文/原文/译文查找替换
   - 支持导入导出 word 文档
 
 * 适用于条漫
@@ -35,6 +35,7 @@
 如果用 Windows 而且不想自己手动配置环境，而且能正常访问互联网:  
 从 [MEGA](https://mega.nz/folder/gmhmACoD#dkVlZ2nphOkU5-2ACb5dKw) 或 [Google Drive](https://drive.google.com/drive/folders/1uElIYRLNakJj-YS0Kd3r3HE-wzeEvrWd?usp=sharing) 下载 BallonsTranslator_dev_src_with_gitpython.7z，解压并运行 launch_win.bat 启动程序。如果无法自动下载库和模型，手动下载 data 和 ballontrans_pylibs_win.7z 并解压到程序目录下。  
 运行 scripts/local_gitpull.bat 获取更新。 
+注意这些打包版无法在 Windows 7 上运行，win 7 用户需要自行安装 [Python 3.8](https://www.python.org/downloads/release/python-3810/) 运行源码。
 
 ## 运行源码
 
@@ -46,52 +47,16 @@ $ git clone https://github.com/dmMaze/BallonsTranslator.git ; cd BallonsTranslat
 
 # 启动程序
 $ python3 launch.py
+
+# 更新程序
+python3 launch.py --update
 ```
 
 第一次运行会自动安装 torch 等依赖项并下载所需模型和文件，如果模型下载失败，需要手动从 [MEGA](https://mega.nz/folder/gmhmACoD#dkVlZ2nphOkU5-2ACb5dKw) 或 [Google Drive](https://drive.google.com/drive/folders/1uElIYRLNakJj-YS0Kd3r3HE-wzeEvrWd?usp=sharing) 下载 data 文件夹(或者报错里提到缺失的文件)，并保存到源码目录下的对应位置。
 
 ## 构建 macOS 应用（适用 apple silicon 芯片）
-<i>如果构建不成功也可以直接跑源码</i>
-
-![录屏2023-09-11 14 26 49](https://github.com/hyrulelinks/BallonsTranslator/assets/134026642/647c0fa0-ed37-49d6-bbf4-8a8697bc873e)
-
-```
-# 第1步：打开终端并确保当前终端窗口的Python大版本号是3.12，可以用下面的命令确认版本号
-python3 -V
-# 如果没有安装Python 3.12，可以通过Homebrew安装
-brew install python@3.12 python-tk@3.12
-
-# 第2步：克隆仓库并进入仓库工作目录
-git clone -b dev https://github.com/dmMaze/BallonsTranslator.git
-cd BallonsTranslator
-
-# 第3步：创建和启用 Python 3.12 虚拟环境
-python3 -m venv venv
-source venv/bin/activate
-
-# 第4步：安装依赖
-pip3 install -r requirements.txt
-
-# 第5步：源码运行程序，会自动下载 data 文件，每个文件在20-400MB左右，合计大约1.67GB，需要比较稳定的网络，如果下载报错，请重复运行下面的命令直至不再下载报错并启动程序
-# 下载完毕后运行下面的命令，如果正常运行且未报错，则继续进入打包应用程序的步骤
-python3 launch.py
-
-# 第6步：下载macos_arm64_patchmatch_libs.7z到项目根目录下的'.btrans_cache'隐藏文件夹
-# 该步骤是为了防止打包好的应用程序首次启动时重新下载macos_arm64_patchmatch_libs.7z导致启动失败（大概率）
-mkdir ./.btrans_cache2
-curl -L https://github.com/dmMaze/PyPatchMatchInpaint/releases/download/v1.0/macos_arm64_patchmatch_libs.7z -o ./.btrans_cache/macos_arm64_patchmatch_libs.7z
-
-# 第7步：下载微软雅黑字体并放到fonts文件夹下，该步骤为可选项，不影响打包，只影响字体报错信息
-
-# 第8步：构建 macOS 应用程序中途 sudo 命令需要输入开机密码授予权限
-# 安装打包工具pyinstaller
-pip3 install pyinstaller
-# 删除MacOS下特有的.DS_Store文件，这些文件可能导致打包失败（中概率）
-sudo find ./ -name '.DS_Store' -delete
-# 开始打包.app应用程序
-sudo pyinstaller launch.spec
-```
-> 📌打包好的应用在`./data/BallonsTranslator/dist/BallonsTranslator.app`，将应用拖到 macOS 的应用程序文件夹即完成安装，开箱即用，不需要另外配置 Python 环境。 
+[参考](doc/macOS_app_CN.md)  
+可能会有各种问题，目前还是推荐跑源码
 
 ## 一键翻译
 **建议在命令行终端下运行程序**，首次运行请先配置好源语言/目标语言，打开一个带图片的文件夹，点击 Run 等待翻译完成  
@@ -170,8 +135,9 @@ Sugoi 翻译器作者: [mingshiba](https://www.patreon.com/mingshiba)
   
 ### 文本检测
  * 暂时仅支持日文(方块字都差不多)和英文检测，训练代码和说明见https://github.com/dmMaze/comic-text-detector
- * 支持使用 [星河云（团子漫画OCR）](https://cloud.stariver.org.cn/)的字体检测，需要填写用户名和密码，每次启动时会自动登录。
+ * 支持使用 [星河云（团子漫画OCR）](https://cloud.stariver.org.cn/)的文本检测，需要填写用户名和密码，每次启动时会自动登录。
    * 详细说明见 [团子OCR说明](doc/团子OCR说明.md)
+ * `YSGDetector` 是由 [lhj5426](https://github.com/lhj5426) 训练的模型，能更好地过滤日漫/CG里的拟声词。需要手动从 [YSGYoloDetector](https://huggingface.co/dreMaz/YSGYoloDetector) 下载模型放到 data/models 目录下。
 
 
 ### OCR
@@ -197,12 +163,38 @@ Sugoi 翻译器作者: [mingshiba](https://www.patreon.com/mingshiba)
  * DeepL 和 Sugoi (及它的 CT2 Translation 转换)翻译器，感谢 [Snowad14](https://github.com/Snowad14)，如果要使用Sugoi翻译器(仅日译英)，下载[离线模型](https://drive.google.com/drive/folders/1KnDlfUM9zbnYFTo6iCbnBaBKabXfnVJm)，将 ```sugoi_translator``` 移入 BallonsTranslator/ballontranslator/data/models。 
  * 支持 [Sakura-13B-Galgame](https://github.com/SakuraLLM/Sakura-13B-Galgame)。如果在本地单卡上运行且显存不足，可以在设置面板里勾选 ```low vram mode``` (默认启用)。
  * DeepLX 请参考[Vercel](https://github.com/bropines/Deeplx-vercel) 或 [deeplx](https://github.com/OwO-Network/DeepLX)
+ * 支持两个版本的 OpenAI 兼容翻译器，支持兼容 OpenAI API 的官方或第三方LLM提供商，需要在设置面板里配置。
+   * 无后缀版本token消耗更小，但分句稳定性稍差，长文本翻译可能有问题。
+   * exp后缀版本token消耗更大，但稳定性更好，且在Prompt中进行了“越狱”，适合长文本翻译。
+ * [m2m100](https://huggingface.co/facebook/m2m100_1.2B): 下载并将 m2m100-1.2B-ctranslate2 移到 data/models 目录下
 
 其它优秀的离线英文翻译模型请参考[这条讨论](https://github.com/dmMaze/BallonsTranslator/discussions/515)  
 如需添加新的翻译器请参考[加别的翻译器](doc/加别的翻译器.md)，本程序添加新翻译器只需要继承基类实现两个接口即可不需要理会代码其他部分，欢迎大佬提 pr
 
 ## 杂
-* 电脑带N卡或 Apple silicon 默认启用 GPU 加速
+* 电脑带 Nvidia 显卡或 Apple silicon 默认启用 GPU 加速
 * 感谢 [bropines](https://github.com/bropines) 提供俄语翻译
 * 第三方输入法可能会造成右侧编辑框显示 bug，见[#76](https://github.com/dmMaze/BallonsTranslator/issues/76)，暂时不打算修
 * 选中文本迷你菜单支持*聚合词典专业划词翻译*[沙拉查词](https://saladict.crimx.com): [安装说明](doc/saladict_chs.md)
+<details>
+  <summary><i>启用 AMD（ROCm6）显卡加速步骤</i></summary>
+
+1. 更新显卡驱动至最新版（建议 24.12.1 及以上，下载并安装 [AMD HIP SDK 6.2](https://www.amd.com/en/developer/resources/rocm-hub/hip-sdk.html)  
+2. 下载 [ZLUDA](https://github.com/lshqqytiger/ZLUDA/releases)（ROCm6版本）并解压到 zluda 文件夹内，复制 zluda 文件夹到系统盘下：比如c盘（C:\zluda）  
+3. 配置系统环境变量，以 windows 10 系统为例：设置 - 系统属性 - 高级系统设置 - 环境变量 - 系统变量 - 找到 path 变量，点击编辑，在最后添加 `C:\zluda` 和 `%HIP_PATH_62%bin` 两项  
+4. 替换 CUDA 库的动态链接文件：将 `C:\zluda` 文件夹内的 `cublas64_11.dll` `cusparse64_11.dll` 和 `nvrtc64_112_0.dll` 复制出一份到桌面，按如下规则重命名复制出来的文件  
+```
+  `原文件名` → `新文件名`
+
+  `cublas.dll` → `cublas64_11.dll`
+
+  `cusparse.dll` → `cusparse64_11.dll`
+
+  `nvrtc.dll` → `nvrtc64_112_0.dll`
+```
+  将已经重命名的文件替换掉 `BallonsTranslator\ballontrans_pylibs_win\Lib\site-packages\torch\lib\` 目录中的同名文件
+
+5. 启动程序并设置 OCR 和文本检测 为 Cuda **（图像修复请继续使用 CPU）**
+6. 运行 OCR 并等待 ZLUDA 编译 PTX 文件 **（首次编译大概需要 5-10 分钟，取决于 CPU 性能）**,**下次运行无需编译**
+  
+</details>

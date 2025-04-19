@@ -64,12 +64,17 @@ class SakuraDict():
         self.logger = logger
         self.dict_str = ""
         self.version = version
+        self.path = path
+
+        if not path:
+            return  # 如果路径为空，直接返回，不加载字典
+
         if not os.path.exists(path):
             if self.version != "0.9":
-                self.logger.warning(f"字典文件不存在: {path}")
+                self.logger.info(f"字典文件不存在: {path}\n 如果您不需要字典功能，请忽略此警告。")
             return
-        self.path = path
-        if self.version == "0.10":
+
+        if self.version == "1.0":
             try:
                 self.load_dict(path)
             except Exception as e:
@@ -89,7 +94,7 @@ class SakuraDict():
             字典文件路径
 
         """
-        if self.version == "0.9":
+        if self.version == "0.9" or not dic_path:
             return
 
         dic_type = self._detect_type(dic_path)
@@ -101,6 +106,8 @@ class SakuraDict():
             self._load_json_dict(dic_path)
         else:
             self.logger.warning(f"未知的字典类型: {dic_path}")
+
+        self.logger.debug(f"字典内容（转换后）: {self.dict_str[:100]}")
 
     def _load_galtransl_dic(self, dic_path: str) -> None:
         """
@@ -245,7 +252,7 @@ class SakuraDict():
             字典内容字符串
 
         """
-        if self.version == "0.9":
+        if self.version == "0.9" or not self.path:
             return ""
 
         if not self.dict_str:
@@ -255,7 +262,7 @@ class SakuraDict():
                 self.logger.warning(f"载入字典失败: {e}")
         return self.dict_str
     
-    def get_dict_str_within_text(self, text: str) -> str:
+    def get_dict_str_within_text(self, text: str, force_apply_dict: bool = False) -> str:
         """
         获取字典内容字符串，仅保留字典中出现的词条。
 
@@ -270,7 +277,9 @@ class SakuraDict():
             字典内容字符串
 
         """
-        if self.version == "0.9":
+        if force_apply_dict:
+            return self.get_dict_str()
+        if self.version == "0.9" or not self.path:
             return ""
 
         if not self.dict_str:
@@ -288,7 +297,9 @@ class SakuraDict():
             if '->' in line:
                 src = line.split('->')[0]
                 # 检查 src 是否在输入文本中
+                # self.logger.debug(f"检查字典原文{src}是否在文本{text}中")
                 if src in text:
+                    # self.logger.debug(f"匹配到字典行: {line}")
                     matched_dict_lines.append(line)
 
         # 将匹配的字典行拼接成一个字符串并返回
@@ -304,7 +315,7 @@ class SakuraDict():
             字典内容的JSON格式字符串
 
         """
-        if self.version == "0.9":
+        if self.version == "0.9" or not self.path:
             return ""
 
         if not self.dict_str:
@@ -338,7 +349,7 @@ class SakuraDict():
             字典类型，可选值有"sakura"、"galtransl"和"json"，默认为"sakura"
 
         """
-        if self.version == "0.9":
+        if self.version == "0.9" or not self.path:
             return
 
         if dict_type == "sakura":
@@ -371,7 +382,7 @@ class SakuraTranslator(BaseTranslator):
             'type': 'selector',
             'options': [
                 '0.9',
-                '0.10',
+                '1.0',
                 'galtransl-v1'
             ],
             'value': '0.9'
@@ -380,13 +391,23 @@ class SakuraTranslator(BaseTranslator):
         'timeout': 999,
         'max tokens': 1024,
         'repeat detect threshold': 20,
+        'force apply dict': {
+            'value': False,
+            'description': 'Force apply the dictionary regardless of whether the terms appear in the original text \n DO NOT CHECK THIS IF YOU ARE NOT SURE WHAT IT MEANS',
+            'type': 'checkbox',
+        },
+        'do enlarge small kana': {
+            'value': False,
+            'description': 'Enlarge small kana to normal size',
+            'type': 'checkbox',
+        }
     }
 
     _CHAT_SYSTEM_TEMPLATE_009 = (
         '你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。'
     )
-    _CHAT_SYSTEM_TEMPLATE_010 = (
-        '你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，注意不要擅自添加原文中没有的代词，也不要擅自增加或减少换行。'
+    _CHAT_SYSTEM_TEMPLATE_100 = (
+        '你是一个轻小说翻译模型，可以流畅通顺地以日本轻小说的风格将日文翻译成简体中文，并联系上下文正确使用人称代词，不擅自添加原文中没有的代词。'
     )
 
     _CHAT_SYSTEM_TEMPLATE_GALTRANSL_V1 = (
@@ -410,14 +431,6 @@ class SakuraTranslator(BaseTranslator):
         return self.params['max tokens']
 
     @property
-    def timeout(self) -> int:
-        return self.params['timeout']
-
-    @property
-    def retry_attempts(self) -> int:
-        return self.params['retry attempts']
-
-    @property
     def api_base_raw(self) -> str:
         return self.params['api baseurl']
 
@@ -438,6 +451,14 @@ class SakuraTranslator(BaseTranslator):
     def dict_path(self) -> str:
         return self.params['dict path']
 
+    @property
+    def force_apply_dict(self) -> bool:
+        return self.params['force apply dict']['value']
+    
+    @property
+    def do_enlarge_small_kana(self) -> bool:
+        return self.params['do enlarge small kana']['value']
+
     def _setup_translator(self):
         self.lang_map['简体中文'] = 'Simplified Chinese'
         self.lang_map['日本語'] = 'Japanese'
@@ -447,7 +468,7 @@ class SakuraTranslator(BaseTranslator):
         self._current_style = "precise"
         self._emoji_pattern = re.compile(r'[\U00010000-\U0010ffff]')
         self._heart_pattern = re.compile(r'❤')
-        sakura_version = self.sakura_version if self.sakura_version!= 'galtransl-v1' else '0.10'
+        sakura_version = self.sakura_version if self.sakura_version!= 'galtransl-v1' else '1.0'
         self.sakura_dict = SakuraDict(
             self.dict_path, self.logger, sakura_version)
         self.logger.info(f'当前选择的Sakura版本: {self.sakura_version}')
@@ -555,7 +576,7 @@ class SakuraTranslator(BaseTranslator):
         return repeated, s, longest_count, longest_pattern, actual_threshold
 
     def _format_prompt_log(self, prompt: str) -> str:
-        gpt_dict_raw_text = self.sakura_dict.get_dict_str_within_text(prompt)
+        gpt_dict_raw_text = self.sakura_dict.get_dict_str_within_text(prompt, self.force_apply_dict)
         prompt_009 = '\n'.join([
             'System:',
             self._CHAT_SYSTEM_TEMPLATE_009,
@@ -563,13 +584,13 @@ class SakuraTranslator(BaseTranslator):
             '将下面的日文文本翻译成中文：',
             prompt,
         ])
-        prompt_010 = '\n'.join([
+        prompt_100 = '\n'.join([
             'System:',
-            self._CHAT_SYSTEM_TEMPLATE_010,
+            self._CHAT_SYSTEM_TEMPLATE_100,
             'User:',
-            "根据以下术语表：",
+            "根据以下术语表（可以为空）：",
             gpt_dict_raw_text,
-            "将下面的日文文本根据上述术语表的对应关系和注释翻译成中文：",
+            "将下面的日文文本根据对应关系和备注翻译成中文：",
             prompt,
         ])
         prompt_galtransl_v1 = '\n'.join([
@@ -583,8 +604,8 @@ class SakuraTranslator(BaseTranslator):
         ])
         if self.sakura_version == '0.9':
             return prompt_009
-        elif self.sakura_version == '0.10':
-            return prompt_010
+        elif self.sakura_version == '1.0':
+            return prompt_100
         else:
             return prompt_galtransl_v1
 
@@ -600,7 +621,8 @@ class SakuraTranslator(BaseTranslator):
         """
         预处理查询文本,去除emoji,替换特殊字符,并添加「」标记。
         """
-        queries = [self.enlarge_small_kana(query) for query in queries]
+        if self.do_enlarge_small_kana:
+            queries = [self.enlarge_small_kana(query) for query in queries]
         queries = [self._emoji_pattern.sub('', query) for query in queries]
         queries = [self._heart_pattern.sub('♥', query) for query in queries]
         queries = [f'「{query}」' for query in queries]
@@ -791,7 +813,8 @@ class SakuraTranslator(BaseTranslator):
             'num_beams': 1,
             'repetition_penalty': 1.0,
         }
-        if self.sakura_version == "0.9":
+        gpt_dict_raw_text = self.sakura_dict.get_dict_str_within_text(raw_text, self.force_apply_dict)
+        if self.sakura_version == "0.9" or gpt_dict_raw_text == "":
             messages = [
                 {
                     "role": "system",
@@ -802,22 +825,18 @@ class SakuraTranslator(BaseTranslator):
                     "content": f"将下面的日文文本翻译成中文：{raw_text}"
                 }
             ]
-        elif self.sakura_version == "0.10":
-            gpt_dict_raw_text = self.sakura_dict.get_dict_str_within_text(raw_text)
-            self.logger.debug(f"Sakura Dict: {gpt_dict_raw_text}")
+        elif self.sakura_version == "1.0":
             messages = [
                 {
                     "role": "system",
-                    "content": f"{self._CHAT_SYSTEM_TEMPLATE_010}"
+                    "content": f"{self._CHAT_SYSTEM_TEMPLATE_100}"
                 },
                 {
                     "role": "user",
-                    "content": f"根据以下术语表：\n{gpt_dict_raw_text}\n将下面的日文文本根据上述术语表的对应关系和注释翻译成中文：{raw_text}"
+                    "content": f"根据以下术语表（可以为空）：\n{gpt_dict_raw_text}\n将下面的日文文本根据对应关系和备注翻译成中文：{raw_text}"
                 }
             ]
         else:
-            gpt_dict_raw_text = self.sakura_dict.get_dict_str_within_text(raw_text)
-            self.logger.debug(f"Sakura Dict: {gpt_dict_raw_text}")
             messages = [
                 {
                     "role": "system",

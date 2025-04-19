@@ -4,9 +4,7 @@ import argparse
 import os.path as osp
 import os
 import importlib
-import re
 import subprocess
-import importlib.util
 import pkg_resources
 from platform import platform
 
@@ -24,7 +22,7 @@ REQ_WIN = [
     'pywin32'
 ]
 
-PATH_ROOT=Path(__file__).parent  
+PATH_ROOT=Path(__file__).parent
 PATH_FONTS=str(PATH_ROOT/'fonts')
 FONT_EXTS = {'.ttf','.otf','.ttc','.pfb'}
 
@@ -43,6 +41,10 @@ parser.add_argument("--requirements", default='requirements.txt')
 parser.add_argument("--headless", action='store_true', help='run without GUI')
 parser.add_argument("--exec_dirs", default='', help='translation queue (project directories) separated by comma')
 parser.add_argument("--ldpi", default=None, type=float, help='logical dots perinch')
+parser.add_argument("--export-translation-txt", action='store_true', help='save translation to txt file once RUN completed')
+parser.add_argument("--export-source-txt", action='store_true', help='save source to txt file once RUN completed')
+parser.add_argument("--frozen", action='store_true', help='run without checking requirements')
+parser.add_argument("--update", action='store_true', help="Update the repository before launching") # Добавлен аргумент --update
 args, _ = parser.parse_known_args()
 
 
@@ -88,7 +90,7 @@ def run_pip(args, desc=None):
         return
 
     index_url_line = f' --index-url {index_url}' if index_url != '' else ''
-    return run(f'"{python}" -m pip {args} --prefer-binary{index_url_line} --disable-pip-version-check', desc=f"Installing {desc}", errdesc=f"Couldn't install {desc}", live=True)
+    return run(f'"{python}" -m pip {args} --prefer-binary{index_url_line} --disable-pip-version-check --no-warn-script-location', desc=f"Installing {desc}", errdesc=f"Couldn't install {desc}", live=True)
 
 
 def commit_hash():
@@ -105,35 +107,15 @@ def commit_hash():
     return stored_commit_hash
 
 
-def load_modules():
-
-    def _load_module(module_dir: str, module_pattern: str):
-        modules = os.listdir(module_dir)
-        pattern = re.compile(module_pattern)
-        module_path = module_dir.replace('/', '.')
-        if not module_path.endswith('.'):
-            module_path += '.'
-        for module_name in modules:
-            if pattern.match(module_name) is not None:
-                importlib.import_module(module_path + module_name.replace('.py', ''))
-
-    for kwargs in [
-        {'module_dir': 'modules/translators', 'module_pattern': r'trans_(.*?).py'},
-        {'module_dir': 'modules/textdetector', 'module_pattern': r'detector_(.*?).py'},
-        {'module_dir': 'modules/inpaint', 'module_pattern': r'inpaint_(.*?).py'},
-        {'module_dir': 'modules/ocr', 'module_pattern': r'ocr_(.*?).py'},
-    ]:
-        _load_module(**kwargs)
-
 BT = None
 APP = None
 
 def restart():
     global BT
     print('restarting...\n')
-    BT.close()
+    if BT:
+        BT.close()
     os.execv(sys.executable, ['python'] + sys.argv)
-
 
 def main():
 
@@ -144,10 +126,10 @@ def main():
 
     commit = commit_hash()
 
-    print('py version: ', sys.version)
-    print('py executable: ', sys.executable)
-    print(f'version: {VERSION}')
-    print(f'branch: {BRANCH}')
+    print('Python version: ', sys.version)
+    print('Python executable: ', sys.executable)
+    print(f'Version: {VERSION}')
+    print(f'Branch: {BRANCH}')
     print(f"Commit hash: {commit}")
 
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -155,12 +137,39 @@ def main():
 
     prepare_environment()
 
+    from utils.zluda_config import enable_zluda_config
+    enable_zluda_config()
+
+    if args.update:
+        if getattr(sys, 'frozen', False):
+            print('Running as app, skipping update.')
+        else:
+            print('Checking for updates...')
+            try:
+                current_commit = commit_hash()
+                run(f"{git} fetch origin {BRANCH}", desc="Fetching updates from git...", errdesc="Failed to fetch updates.")
+                latest_commit = run(f"{git} rev-parse origin/{BRANCH}").strip()
+
+                if current_commit != latest_commit:
+                    print("New updates found. Updating repository...")
+                    run(f"{git} pull origin {BRANCH}", desc="Updating repository...", errdesc="Failed to update repository.")
+                    print("Repository updated. Restarting to apply updates...")
+                    restart()
+                    return
+                else:
+                    print("No updates found.")
+            except Exception as e:
+                print(f"Update check failed: {e}")
+                print("Continuing with the current version.")
+
+
     from utils.logger import setup_logging, logger as LOGGER
     import utils.shared as shared
     from utils.io_utils import find_all_files_recursive
     from utils import config as program_config
 
     from qtpy.QtCore import QTranslator, QLocale, Qt
+    shared.args = args
     shared.DEFAULT_DISPLAY_LANG = QLocale.system().name().replace('en_CN', 'zh_CN')
     shared.HEADLESS = args.headless
     shared.load_cache()
@@ -197,14 +206,17 @@ def main():
 
     setup_logging(shared.LOGGING_PATH)
 
-    load_modules()
+    from modules.base import load_modules
     from modules.prepare_local_files import prepare_local_files_forall
+    load_modules()
     prepare_local_files_forall()
 
     app_args = sys.argv
     if args.headless:
         app_args = sys.argv + ['-platform', 'offscreen']
     app = QApplication(app_args)
+    app.setApplicationName('BalloonsTranslator')
+    app.setApplicationVersion(VERSION)
 
     if not args.headless:
         ps = QGuiApplication.primaryScreen()
@@ -229,12 +241,12 @@ def main():
             fnt_idx = QFontDatabase.addApplicationFont(fp)
             if fnt_idx >= 0:
                 shared.CUSTOM_FONTS.append(QFontDatabase.applicationFontFamilies(fnt_idx)[0])
-    
+
     if sys.platform == 'win32' and args.headless:
-        # font database does not initialise on windows with qpa -offscreen: 
+        # font database does not initialise on windows with qpa -offscreen:
         # whttps://github.com/dmMaze/BallonsTranslator/issues/519
         from qtpy.QtCore import QStandardPaths
-        font_dir_list = QStandardPaths.standardLocations(QStandardPaths.FontsLocation)
+        font_dir_list = QStandardPaths.standardLocations(QStandardPaths.StandardLocation.FontsLocation)
         for fd in font_dir_list:
             fp_list = find_all_files_recursive(fd, FONT_EXTS)
             for fp in fp_list:
@@ -246,17 +258,15 @@ def main():
         fdb = QFontDatabase()
         shared.FONT_FAMILIES = set(fdb.families())
 
-    yahei = QFont('Microsoft YaHei UI')
-    if yahei.exactMatch() and not sys.platform == 'darwin':
-        QGuiApplication.setFont(yahei)
-        shared.DEFAULT_FONT_FAMILY = 'Microsoft YaHei UI'
-        shared.APP_DEFAULT_FONT = 'Microsoft YaHei UI'
-    else:
-        app_font = app.font().family()
-        shared.DEFAULT_FONT_FAMILY = app_font
-        shared.APP_DEFAULT_FONT = app_font
-
-    shared.APP_DEFAULT_FONT = app.font().defaultFamily()
+    app_font = QFont('Microsoft YaHei UI')
+    if not app_font.exactMatch() or sys.platform == 'darwin':
+        app_font = app.font()
+    app_font.setHintingPreference(QFont.HintingPreference.PreferNoHinting)
+    app_font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias | QFont.StyleStrategy.NoSubpixelAntialias)
+    QGuiApplication.setFont(app_font)
+    shared.DEFAULT_FONT_FAMILY = app_font.family()
+    shared.APP_DEFAULT_FONT = app_font.family()
+    
     if args.ldpi:
         shared.LDPI = args.ldpi
 
@@ -270,7 +280,7 @@ def main():
     if not args.headless:
         if shared.SCREEN_W > 1707 and sys.platform == 'win32':   # higher than 2560 (1440p) / 1.5
             # https://github.com/dmMaze/BallonsTranslator/issues/220
-            BT.comicTransSplitter.setHandleWidth(10)
+            BT.comicTransSplitter.setHandleWidth(7)
 
         ballontrans.setWindowIcon(QIcon(shared.ICON_PATH))
         ballontrans.show()
@@ -280,6 +290,9 @@ def main():
 def prepare_environment():
     if getattr(sys, 'frozen', False):
         print('Running as app, skip dependency installation')
+        return
+
+    if args.frozen:
         return
 
     req_updated = False

@@ -145,12 +145,34 @@ SizeComboBox::drop-down {
     width: 12px;
 }
 
+SizeControlLabel {
+    font-size: 14px;
+}
+
+
+SmallSizeControlLabel {
+    font-size: 12px;
+}
+
 QLabel#lineSpacingLabel {
     image: url(icons/fontfmt_linespacing.svg);
     max-width: 25px;
     max-height: 25px;
     min-width: 25px;
     min-height: 25px;
+}
+
+QGroupBox {
+    font-size: 14px;
+    border: 1px solid @borderColor;
+    margin-top: 9px;
+    border-radius: 6px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 7px;
+    padding: 0px 5px 0px 5px;
 }
 
 QLabel#letterSpacingLabel {
@@ -171,6 +193,14 @@ ColorPickerLabel {
 
 ColorPickerLabel::hover {
     border: 2px solid rgb(30, 147, 229);
+}
+
+SmallColorPickerLabel {
+    max-height: 17px;
+    min-height: 17px;
+    min-width: 17px;
+    max-width: 17px;
+    border: 1px solid @borderColor;
 }
 
 AlignmentChecker {
@@ -322,8 +352,12 @@ QMenu::item:selected {
 }
 
 QDialog {
-    font-size: 7px;
+    font-size: 14px;
     background-color: @widgetBackgroundColor;
+}
+
+QDialog QPushButton {
+    padding: 5px 15px;
 }
 
 QGroupBox {
@@ -337,6 +371,10 @@ QPushButton {
     background-color: @pushBtnBackgroundColor;
     border: 1px solid @borderColor;
     border-radius: 4px;
+}
+
+QPushButton#RunButton {
+    font-size: 12px;
 }
 
 NoBorderPushBtn {
@@ -419,14 +457,6 @@ QPushButton#closeBtn::hover {
 
 TextCheckerLabel::hover {
     background-color: rgba(30, 147, 229, 20%);
-}
-
-TextCheckerLabel#OCRChecker {
-    height: 34px;
-    width: 66;
-    padding-left: 7px;
-    padding-right: 7px;
-    font-size: 22px;
 }
 
 QCheckBox#TransChecker::indicator {
@@ -525,8 +555,8 @@ QProgressBar {
 }
 
 ShowPageListChecker::indicator{
-    height: 37px;
-    width: 37px;
+    height: 27px;
+    width: 27px;
     image: url(icons/showpagelist.svg);
 }
 
@@ -540,8 +570,8 @@ ShowPageListChecker::indicator:checked
 }
 
 QCheckBox#GlobalSearchChecker::indicator{
-    height: 38px;
-    width: 38px;
+    height: 28px;
+    width: 28px;
     image: url(icons/search.svg);
 }
 
@@ -556,8 +586,8 @@ QCheckBox#GlobalSearchChecker::indicator:checked
 
 
 StateChecker#ImgTransChecker::indicator{
-    height: 37px;
-    width: 37px;
+    height: 27px;
+    width: 27px;
     image: url(icons/leftbar_imgtrans.svg);
 }
 
@@ -572,8 +602,8 @@ StateChecker#ImgTransChecker::indicator:checked
 }
 
 StateChecker#ConfigChecker::indicator{
-    height: 37px;
-    width: 37px;
+    height: 27px;
+    width: 27px;
     image: url(icons/leftbar_config.svg);
 }
 
@@ -585,20 +615,6 @@ StateChecker#ConfigChecker::indicator:checked
 {
     image: url(icons/leftbar_config_activate.svg);
 }
-
-StateChecker#OCRChecker::indicator{
-    height: 28px;
-    width: 28px;
-    image: url(icons/bottombar_ocr.svg);
-}
-
-StateChecker#OCRChecker::indicator:checked{
-    height: 28px;
-    width: 28px;
-    background-color: rgba(30, 147, 229);
-    image: url(icons/bottombar_ocr_activate.svg);
-}
-
 
 QProgressBar::chunk {
     background-color: #b0cbf8;
@@ -723,6 +739,14 @@ QLabel#angleLabel {
 }
 
 .ClickableLabel::hover {
+    background-color: rgba(30, 147, 229, 20%);
+}
+
+.ConfigClickableLabel {
+    font-size: 12px;
+}
+
+.ConfigClickableLabel::hover {
     background-color: rgba(30, 147, 229, 20%);
 }
 
@@ -1000,6 +1024,35 @@ PanelGroupBox::title {
 
 TextStyleLabel {
     border-radius: 7px;
+}
+
+SmallParamLabel {
+    font-size: 12px;
+    height: 20px;
+}
+
+SmallComboBox {
+    height: 20px;
+    font-size: 12px;
+    /* padding-left: 8px; */
+    border: 1px solid @borderColor;
+    background-color: @transtexteditBackgroundColor;
+}
+
+SmallConfigPutton {
+    height: 20px;
+    width: 20px;
+    border: none;
+    border-width: 0px;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+SmallSizeComboBox {
+    height: 20px;
+    font-size: 12px;
+    /* padding-left: 8px; */
+    border: 1px solid @borderColor;
+    background-color: @transtexteditBackgroundColor;
 }
 
 ArrowLeftButton {
