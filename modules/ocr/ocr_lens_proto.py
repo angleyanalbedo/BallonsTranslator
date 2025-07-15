@@ -3,14 +3,12 @@
 import re
 import numpy as np
 import time
-import cv2
 import random
 from typing import List, Dict, Any, Tuple, Optional, Union
 from math import sqrt
 import io
 import os
 import json
-from urllib.parse import urlparse
 
 import requests
 from PIL import Image, ImageFile
@@ -471,7 +469,7 @@ class OCRLensAPI_exp(OCRBase):
 
         full_text = ""
         try:
-            pil_img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            pil_img = Image.fromarray(img)
             processed_bytes, width, height = _preprocess_image_for_lens(pil_img)
 
             if not processed_bytes:

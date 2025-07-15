@@ -2,7 +2,7 @@
 > **如打算公开分享本工具的机翻结果，且没有有经验的译者进行过完整的翻译或校对，请在显眼位置注明机翻。**
 
 # BallonTranslator
-简体中文 | [English](/README_EN.md) | [pt-BR](doc/README_PT-BR.md) | [Русский](doc/README_RU.md) | [日本語](doc/README_JA.md) | [Indonesia](doc/README_ID.md) | [Tiếng Việt](doc/README_VI.md) | [한국어](doc/README_KO.md) | [Español](doc/README_ES.md)
+简体中文 | [English](/README_EN.md) | [pt-BR](doc/README_PT-BR.md) | [Русский](doc/README_RU.md) | [日本語](doc/README_JA.md) | [Indonesia](doc/README_ID.md) | [Tiếng Việt](doc/README_VI.md) | [한국어](doc/README_KO.md) | [Español](doc/README_ES.md) | [Français](doc/README_FR.md)
 
 深度学习辅助漫画翻译工具，支持一键机翻和简单的图像/文本编辑  
 
@@ -39,7 +39,7 @@
 
 ## 运行源码
 
-安装 [Python](https://www.python.org/downloads/release/python-31011) **< 3.12** (别用微软应用商店版) 和 [Git](https://git-scm.com/downloads)
+安装 [Python](https://www.python.org/downloads/release/python-31011) **<= 3.12** (别用微软应用商店版) 和 [Git](https://git-scm.com/downloads)
 
 ```bash
 # 克隆仓库
@@ -137,7 +137,7 @@ Sugoi 翻译器作者: [mingshiba](https://www.patreon.com/mingshiba)
  * 暂时仅支持日文(方块字都差不多)和英文检测，训练代码和说明见https://github.com/dmMaze/comic-text-detector
  * 支持使用 [星河云（团子漫画OCR）](https://cloud.stariver.org.cn/)的文本检测，需要填写用户名和密码，每次启动时会自动登录。
    * 详细说明见 [团子OCR说明](doc/团子OCR说明.md)
- * `YSGDetector` 是由 [lhj5426](https://github.com/lhj5426) 训练的模型，能更好地过滤日漫/CG里的拟声词。需要手动从 [YSGYoloDetector](https://huggingface.co/dreMaz/YSGYoloDetector) 下载模型放到 data/models 目录下。
+ * `YSGDetector` 是由 [lhj5426](https://github.com/lhj5426) 训练的模型，能更好地过滤日漫/CG里的拟声词。需要手动从 [YSGYoloDetector](https://huggingface.co/YSGforMTL/YSGYoloDetector) 下载模型放到 data/models 目录下。
 
 
 ### OCR
@@ -182,15 +182,18 @@ Sugoi 翻译器作者: [mingshiba](https://www.patreon.com/mingshiba)
 1. 更新显卡驱动至最新版（建议 24.12.1 及以上，下载并安装 [AMD HIP SDK 6.2](https://www.amd.com/en/developer/resources/rocm-hub/hip-sdk.html)  
 2. 下载 [ZLUDA](https://github.com/lshqqytiger/ZLUDA/releases)（ROCm6版本）并解压到 zluda 文件夹内，复制 zluda 文件夹到系统盘下：比如c盘（C:\zluda）  
 3. 配置系统环境变量，以 windows 10 系统为例：设置 - 系统属性 - 高级系统设置 - 环境变量 - 系统变量 - 找到 path 变量，点击编辑，在最后添加 `C:\zluda` 和 `%HIP_PATH_62%bin` 两项  
-4. 替换 CUDA 库的动态链接文件：将 `C:\zluda` 文件夹内的 `cublas64_11.dll` `cusparse64_11.dll` 和 `nvrtc64_112_0.dll` 复制出一份到桌面，按如下规则重命名复制出来的文件  
+4. 替换 CUDA 库的动态链接文件：将 `C:\zluda` 文件夹内的 `cublas.dll` `cusparse.dll` 和 `nvrtc.dll` 复制出一份到桌面，按如下规则重命名复制出来的文件  
+
+**注意：(AMD 驱动 25.5.1 务必更新 ZLUDA 版本到 3.9.5 及以上)**
+
 ```
-  `原文件名` → `新文件名`
+  原文件名 → 新文件名
 
-  `cublas.dll` → `cublas64_11.dll`
+  cublas.dll → cublas64_11.dll
 
-  `cusparse.dll` → `cusparse64_11.dll`
+  cusparse.dll → cusparse64_11.dll
 
-  `nvrtc.dll` → `nvrtc64_112_0.dll`
+  nvrtc.dll → nvrtc64_112_0.dll
 ```
   将已经重命名的文件替换掉 `BallonsTranslator\ballontrans_pylibs_win\Lib\site-packages\torch\lib\` 目录中的同名文件
 

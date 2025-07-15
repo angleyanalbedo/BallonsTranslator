@@ -1,7 +1,6 @@
 import math
 import torch
 import torch.nn as nn
-import pkg_resources as pkg
 import torch.nn.functional as F
 import cv2
 import numpy as np
@@ -71,14 +70,6 @@ def intersect_dicts(da, db, exclude=()):
     # Dictionary intersection of matching keys and shapes, omitting 'exclude' keys, using da values
     return {k: v for k, v in da.items() if k in db and not any(x in k for x in exclude) and v.shape == db[k].shape}
 
-def check_version(current='0.0.0', minimum='0.0.0', name='version ', pinned=False, hard=False):
-    # Check version vs. required version
-    current, minimum = (pkg.parse_version(x) for x in (current, minimum))
-    result = (current == minimum) if pinned else (current >= minimum)  # bool
-    if hard:  # assert min requirements met
-        assert result, f'{name}{minimum} required by YOLOv5, but {name}{current} is currently installed'
-    else:
-        return result
 
 class Colors:
     # Ultralytics color palette https://ultralytics.com/
@@ -237,7 +228,7 @@ def draw_bbox(pred, img, lang_list=None):
     for ii, obj in enumerate(pred):
         p1, p2 = (obj[0], obj[1]), (obj[2], obj[3])
         label = lang_list[obj[-1]] + str(ii+1)
-        cv2.rectangle(img, p1, p2, colors(obj[-1], bgr=True), lw, lineType=cv2.LINE_AA)
+        cv2.rectangle(img, p1, p2, colors(obj[-1], bgr=False), lw, lineType=cv2.LINE_AA)
         t_w, t_h = cv2.getTextSize(label, 0, fontScale=lw / 3, thickness=lw)[0]
-        cv2.putText(img, label, (p1[0], p1[1] + t_h + 2), 0, lw / 3, colors(obj[-1], bgr=True), max(lw-1, 1), cv2.LINE_AA)
+        cv2.putText(img, label, (p1[0], p1[1] + t_h + 2), 0, lw / 3, colors(obj[-1], bgr=False), max(lw-1, 1), cv2.LINE_AA)
     return img

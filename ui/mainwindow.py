@@ -15,7 +15,7 @@ from utils.logger import logger as LOGGER
 from utils.text_processing import is_cjk, full_len, half_len
 from utils.textblock import TextBlock, TextAlignment
 from utils import shared
-from utils import create_error_dialog, create_info_dialog
+from utils.message import create_error_dialog, create_info_dialog
 from modules.translators.trans_chatgpt import GPTTranslator
 from modules import GET_VALID_TEXTDETECTORS, GET_VALID_INPAINTERS, GET_VALID_TRANSLATORS, GET_VALID_OCR
 from .misc import parse_stylesheet, set_html_family, QKEY
@@ -32,7 +32,7 @@ from .io_thread import ImgSaveThread, ImportDocThread, ExportDocThread
 from .custom_widget import Widget, ViewWidget
 from .global_search_widget import GlobalSearchWidget
 from .textedit_commands import GlobalRepalceAllCommand
-from .framelesswindow import FramelessWindow
+from .framelesswindow import FramelessWindow, FramelessMoveResize
 from .drawing_commands import RunBlkTransCommand
 from .keywordsubwidget import KeywordSubWidget
 from . import shared_widget as SW
@@ -89,7 +89,8 @@ class MainWindow(mainwindow_cls):
         self.setupConfig()
         self.setupShortcuts()
         self.setupRegisterWidget()
-        self.showMaximized()
+        # self.showMaximized()
+        FramelessMoveResize.toggleMaxState(self)
         self.setAcceptDrops(True)
 
         if open_dir != '' and osp.exists(open_dir):
@@ -917,7 +918,7 @@ class MainWindow(mainwindow_cls):
             if not save_rst_only:
                 mask_path = self.imgtrans_proj.get_mask_path()
                 mask_array = self.imgtrans_proj.mask_array
-                self.imsave_thread.saveImg(mask_path, mask_array)
+                self.imsave_thread.saveImg(mask_path, mask_array, save_params={'ext': pcfg.intermediate_imgsave_ext})
                 inpainted_path = self.imgtrans_proj.get_inpainted_path()
                 if self.canvas.drawingLayer.drawed():
                     inpainted = self.canvas.base_pixmap.copy()
@@ -926,7 +927,7 @@ class MainWindow(mainwindow_cls):
                     painter.end()
                 else:
                     inpainted = self.imgtrans_proj.inpainted_array
-                self.imsave_thread.saveImg(inpainted_path, inpainted)
+                self.imsave_thread.saveImg(inpainted_path, inpainted, save_params={'ext': pcfg.intermediate_imgsave_ext})
 
         img = self.canvas.render_result_img()
         imsave_path = self.imgtrans_proj.get_result_path(self.imgtrans_proj.current_img)
@@ -1133,7 +1134,8 @@ class MainWindow(mainwindow_cls):
                 if self._run_imgtrans_wo_textstyle_update and ffmt_list is not None:
                     blk.fontformat.merge(ffmt_list[ii])
                 else:
-                    if override_fnt_size:
+                    if override_fnt_size or \
+                        blk.font_size < 0:  # fall back to global font size if font size is not valid, it will be set to -1 for detected blocks
                         blk.font_size = gf.font_size
                     elif blk._detected_font_size > 0 and not pcfg.module.enable_detect:
                         blk.font_size = blk._detected_font_size

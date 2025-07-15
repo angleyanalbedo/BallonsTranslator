@@ -20,7 +20,7 @@ import modules
 modules.translators.SYSTEM_LANG = QLocale.system().name()
 from utils.textblock import TextBlock, sort_regions
 from utils import shared
-from utils import create_error_dialog, create_info_dialog, connect_once
+from utils.message import create_error_dialog, create_info_dialog
 from .custom_widget import ImgtransProgressMessageBox, ParamComboBox
 from .configpanel import ConfigPanel
 from utils.proj_imgtrans import ProjImgTrans
@@ -369,15 +369,19 @@ class ImgtransThread(QThread):
                     create_error_dialog(e, self.tr('Text Detection Failed.'), 'TextDetectFailed')
                     blk_list = []
                 self.detect_counter += 1
-                self.update_detect_progress.emit(self.detect_counter)
                 if pcfg.module.keep_exist_textlines:
                     blk_list = self.imgtrans_proj.pages[imgname] + blk_list
                     blk_list = sort_regions(blk_list)
                     existed_mask = self.imgtrans_proj.load_mask_by_imgname(imgname)
                     if existed_mask is not None:
                         mask = np.bitwise_or(mask, existed_mask)
-                    print(len(blk_list), len(self.imgtrans_proj.pages[imgname]))
                 self.imgtrans_proj.pages[imgname] = blk_list
+
+                if mask is not None and not cfg_module.enable_ocr:
+                    self.imgtrans_proj.save_mask(imgname, mask)
+                    need_save_mask = False
+                    
+                self.update_detect_progress.emit(self.detect_counter)
 
             if blk_list is None:
                 blk_list = self.imgtrans_proj.pages[imgname] if imgname in self.imgtrans_proj.pages else []
